@@ -1,0 +1,44 @@
+{
+  "cdp": {
+    "default_port": 9222,
+    "chrome_path_windows": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+    "chrome_path_mac": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "chrome_path_linux": "google-chrome",
+    "default_profile": "bypass-anything",
+    "viewport": { "width": 1920, "height": 1080 }
+  },
+  "captcha": {
+    "provider": "2captcha",
+    "env_keys": {
+      "2captcha": "CAPTCHA_2CAPTCHA_KEY",
+      "capsolver": "CAPTCHA_CAPSOLVER_KEY",
+      "anticaptcha": "CAPTCHA_ANTICAPTCHA_KEY"
+    },
+    "max_cost_per_run": 0.50
+  },
+  "cf_bypass": {
+    "flaresolverr_url": "http://localhost:8191",
+    "cf_retry_count": 3,
+    "cf_retry_delay_ms": 5000
+  },
+  "proxy": {
+    "host": "127.0.0.1",
+    "port": 7892,
+    "enabled": false
+  },
+  "stealth": {
+    "modules": [
+      "navigator.webdriver",
+      "chrome.runtime",
+      "permissions.api",
+      "iframe.contentWindow",
+      "webgl.vendor",
+      "navigator.plugins",
+      "navigator.languages",
+      "media.codecs",
+      "sourceURL.leak",
+      "hardwareConcurrency",
+      "deviceMemory"
+    ]
+  }
+}
