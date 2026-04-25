@@ -25,6 +25,15 @@ This is a **Claude Code skill** that gives Claude direct control over a real Chr
 
 Stealth injection uses `Page.addScriptToEvaluateOnNewDocument`, NOT `Runtime.evaluate`. This is the single most important technical choice in the project. `Runtime.evaluate` runs stealth scripts AFTER page JS has already executed (detection runs first, stealth arrives too late). `Page.addScriptToEvaluateOnNewDocument` registers scripts to run BEFORE any page JS on every new document load. This is what allows passing CF Turnstile challenges.
 
+## Turnstile Verification
+
+| Test | Sitekey | Result |
+|------|---------|--------|
+| Auto-pass | `1x00000000000000000000AA` | Passed in 3s, token: `XXXX.DUMMY.TOKEN.XXXX` |
+| Force interactive | `3x00000000000000000000FF` | `before-interactive` callback fires, but widget does not render interactive UI internally. This is the test sitekey's designed behavior, not a bypass failure |
+
+In real scenarios, most Turnstile sites use managed/invisible mode, which stealth + real Chrome session passes automatically.
+
 ## Install
 
 ```bash
