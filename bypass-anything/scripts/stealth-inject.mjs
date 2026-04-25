@@ -2,9 +2,12 @@
  * 11 模块反检测注入脚本
  *
  * 基于 puppeteer-extra-plugin-stealth 的 11 个 evasion 模块，
- * 适配 CDP WebSocket Runtime.evaluate 注入。
+ * 适配 CDP WebSocket 注入。
  *
- * 每个模块是一个 JS 字符串，通过 CDP Runtime.evaluate 在页面加载前执行。
+ * CRITICAL: Must use Page.addScriptToEvaluateOnNewDocument (not Runtime.evaluate).
+ * Runtime.evaluate runs AFTER page JS, so detection scripts run first.
+ * Page.addScriptToEvaluateOnNewDocument runs BEFORE any page JS.
+ *
  * 用法:
  *   import { STEALTH_SCRIPTS, injectStealth } from './stealth-inject.mjs';
  *   await injectStealth(send);  // send = CDP send function
@@ -143,18 +146,36 @@ export const STEALTH_SCRIPTS = [
 ];
 
 /**
- * 注入所有 stealth 脚本到 CDP 连接
+ * Combine all scripts into one string for single injection
+ */
+export function getCombinedStealthScript() {
+  return STEALTH_SCRIPTS.map(s => `(function(){ ${s} })();`).join('\n');
+}
+
+/**
+ * Inject all stealth modules via Page.addScriptToEvaluateOnNewDocument.
+ *
+ * CRITICAL: This uses Page.addScriptToEvaluateOnNewDocument, not Runtime.evaluate.
+ * This ensures stealth runs BEFORE any page JS (including detection scripts).
+ * Using Runtime.evaluate was the #1 cause of CF challenge detection failures.
  */
 export async function injectStealth(send) {
-  for (let i = 0; i < STEALTH_SCRIPTS.length; i++) {
-    try {
-      await send('Runtime.evaluate', {
-        expression: `(function(){ ${STEALTH_SCRIPTS[i]} })()`,
-        returnByValue: true,
-      });
-    } catch (e) {
-      console.warn(`  [Stealth] Module ${i + 1} failed: ${e.message}`);
+  const combined = getCombinedStealthScript();
+  try {
+    await send('Page.addScriptToEvaluateOnNewDocument', { source: combined });
+    console.log(`  [Stealth] ${STEALTH_SCRIPTS.length} modules pre-injected (Page.addScriptToEvaluateOnNewDocument)`);
+  } catch (e) {
+    // Fallback: inject individually if combined fails
+    console.warn(`  [Stealth] Combined injection failed, trying individual: ${e.message}`);
+    for (let i = 0; i < STEALTH_SCRIPTS.length; i++) {
+      try {
+        await send('Page.addScriptToEvaluateOnNewDocument', {
+          source: `(function(){ ${STEALTH_SCRIPTS[i]} })();`
+        });
+      } catch (e2) {
+        console.warn(`  [Stealth] Module ${i + 1} failed: ${e2.message}`);
+      }
     }
+    console.log(`  [Stealth] ${STEALTH_SCRIPTS.length} modules pre-injected (individual)`);
   }
-  console.log(`  [Stealth] ${STEALTH_SCRIPTS.length} modules injected`);
 }

@@ -177,12 +177,15 @@ async function cdpNavigate(url, port = 9222) {
     });
   }
 
-  // 注入反检测补丁
+  // 注入反检测补丁 (must use Page.addScriptToEvaluateOnNewDocument, not Runtime.evaluate)
   await send('Page.enable');
-  await send('Runtime.evaluate', {
-    expression: `
+  await send('Page.addScriptToEvaluateOnNewDocument', {
+    source: `
       Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-      window.chrome = { runtime: {}, loadTimes: function(){}, csi: function(){} };
+      if(!window.chrome)window.chrome={};
+      if(!window.chrome.runtime)window.chrome.runtime={connect:function(){return{onDisconnect:{addListener:function(){}},onMessage:{addListener:function(){}},postMessage:function(){}};},sendMessage:function(){}};
+      if(!window.chrome.loadTimes)window.chrome.loadTimes=function(){return{commitLoadTime:Date.now()/1000}};
+      if(!window.chrome.csi)window.chrome.csi=function(){return{onloadT:Date.now(),pageT:500+Math.random()*500}};
     `,
   });
 

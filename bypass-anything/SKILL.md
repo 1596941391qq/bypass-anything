@@ -61,7 +61,7 @@ Claude Code will use this skill to:
 
 ### Anti-Detection (stealth-inject.mjs)
 
-11 modules injected via CDP `Runtime.evaluate` before any page interaction:
+11 modules injected via CDP `Page.addScriptToEvaluateOnNewDocument` (NOT `Runtime.evaluate`). This ensures stealth runs BEFORE any page JS. Using `Runtime.evaluate` was the #1 cause of CF Turnstile detection failures.
 
 1. `navigator.webdriver` → returns `undefined`
 2. Chrome runtime API → complete fake with `OnInstalledReason`, `PlatformArch`, etc.
@@ -84,10 +84,10 @@ Claude Code will use this skill to:
 
 ### CF Bypass (cf-solver.mjs)
 
-Priority chain: FlareSolverr Docker → CDP takeover
+Priority chain: FlareSolverr Docker → CDP takeover (with Page.addScriptToEvaluateOnNewDocument stealth)
 
 - **FlareSolverr**: Headless Chrome solves CF challenge, returns clearance cookies. Deploy with `docker run -d -p 8191:8191 ghcr.io/flaresolverr/flaresolverr`
-- **CDP takeover**: Reuse user's already-verified Chrome session. 99% success rate when browser has active CF clearance
+- **CDP takeover**: Reuse user's already-verified Chrome session. Stealth injected via `Page.addScriptToEvaluateOnNewDocument` before navigation. 99% success rate when browser has active CF clearance
 
 ### CAPTCHA Solver (captcha-solver.mjs)
 
@@ -97,7 +97,7 @@ Priority chain: FlareSolverr Docker → CDP takeover
 
 ### CDP Engine (cdp-submit.mjs)
 
-Main entry point. Connects to Chrome via WebSocket, injects stealth, navigates pages, fills forms, takes screenshots.
+Main entry point. Connects to Chrome via WebSocket, injects stealth via `Page.addScriptToEvaluateOnNewDocument`, navigates pages, fills forms, takes screenshots. Auto-detects and waits for CF challenges to resolve.
 
 ```javascript
 import { connect, navigate, getPageInfo, fillField, clickElement, takeScreenshot } from './scripts/cdp-submit.mjs';
@@ -162,6 +162,8 @@ Navigate through proxy, verify response, capture headers. CDP respects Chrome's 
 - CAPTCHA (non-Turnstile) requires paid API key
 - Single Chrome profile per session (no multi-tab isolation)
 - No cookie/session persistence across restarts
+- Interactive Turnstile challenges (forced by sitekey 3x...FF) may require user click; managed/invisible mode auto-passes
+- `challenges.cloudflare.com` may be blocked in some regions (China); test with `curl -s https://challenges.cloudflare.com/turnstile/v0/api.js`
 
 ## Roadmap
 
