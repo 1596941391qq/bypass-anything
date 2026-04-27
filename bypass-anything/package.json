@@ -1,6 +1,6 @@
 {
   "name": "bypass-anything",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "type": "module",
   "description": "Browser automation skill for Claude Code: anti-detection, human behavior simulation, CF bypass, CAPTCHA solving",

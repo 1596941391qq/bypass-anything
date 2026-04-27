@@ -2,7 +2,7 @@
 
 > Claude Code 浏览器自动化技能：反检测、人类行为模拟、Cloudflare 绕过、CAPTCHA 解决方案。
 
-零 Puppeteer。原生 CDP WebSocket。11 个反检测模块。Bezier 鼠标。打字节奏。Turnstile 自动解决。已验证：CF Turnstile 测试密钥 3 秒通过。
+零 Puppeteer。原生 CDP WebSocket。11 个反检测模块。Bezier 鼠标。打字节奏。Turnstile 自动解决。已验证：CF Turnstile 真实 sitekey 6 秒通过。
 
 ## 它做什么
 
@@ -222,10 +222,12 @@ const token = await solveCaptcha('recaptcha_v2', {      // 或手动按类型
 
 | 测试 | Sitekey | 结果 |
 |------|---------|------|
-| 自动通过 | `1x00000000000000000000AA` | 3 秒通过，token: `XXXX.DUMMY.TOKEN.XXXX` |
+| 测试自动通过 | `1x00000000000000000000AA` | 3 秒通过，token: `XXXX.DUMMY.TOKEN.XXXX` |
 | 强制交互 | `3x00000000000000000000FF` | `before-interactive` 回调触发，但 widget 内部不渲染可交互 UI。这是 Cloudflare 测试 sitekey 的设计行为，不是绕过失败 |
+| **真实 sitekey** | `0x4AAAAAAAhMny_sYVPqN2SW` | **6 秒通过，真实 837 字符 token 捕获**（turnstile.cf-testing.com） |
+| **真实显式渲染** | `0x4AAAAAAAhMny_sYVPqN2SW` | **通过，显式渲染模式下真实 token 捕获** |
 
-真实场景中，绝大多数 Turnstile 站使用 managed/invisible 模式，stealth + 真实 Chrome session 自动通过。强制交互模式仅占极少数站点，且通常有可见的 checkbox 可以通过 CDP `Input.dispatchMouseEvent` 模拟点击解决。
+真实 sitekey 在 `turnstile.cf-testing.com` 验证通过。通过 `Page.addScriptToEvaluateOnNewDocument` 注入 stealth，无需 API key，token 自动从隐藏 input 字段捕获。
 
 ## 项目结构
 

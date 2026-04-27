@@ -2,7 +2,7 @@
 
 > Claude Code skill for browser automation with anti-detection, human behavior simulation, Cloudflare bypass, and CAPTCHA solving.
 
-Zero Puppeteer. CDP WebSocket native. 11 anti-detection modules. Bezier mouse. Typing rhythm. Turnstile auto-solve. Verified: CF Turnstile test key bypassed in 3s.
+Zero Puppeteer. CDP WebSocket native. 11 anti-detection modules. Bezier mouse. Typing rhythm. Turnstile auto-solve. Verified: CF Turnstile real sitekey bypassed in 6s.
 
 ## What It Does
 
@@ -29,10 +29,12 @@ Stealth injection uses `Page.addScriptToEvaluateOnNewDocument`, NOT `Runtime.eva
 
 | Test | Sitekey | Result |
 |------|---------|--------|
-| Auto-pass | `1x00000000000000000000AA` | Passed in 3s, token: `XXXX.DUMMY.TOKEN.XXXX` |
+| Test auto-pass | `1x00000000000000000000AA` | Passed in 3s, token: `XXXX.DUMMY.TOKEN.XXXX` |
 | Force interactive | `3x00000000000000000000FF` | `before-interactive` callback fires, but widget does not render interactive UI internally. This is the test sitekey's designed behavior, not a bypass failure |
+| **Real sitekey** | `0x4AAAAAAAhMny_sYVPqN2SW` | **Passed in 6s, real 837-char token captured** (turnstile.cf-testing.com) |
+| **Real explicit render** | `0x4AAAAAAAhMny_sYVPqN2SW` | **Passed, real token captured via explicit render mode** |
 
-In real scenarios, most Turnstile sites use managed/invisible mode, which stealth + real Chrome session passes automatically.
+Real sitekey verified on `turnstile.cf-testing.com` with stealth injection via `Page.addScriptToEvaluateOnNewDocument`. No API key needed. Token auto-captured from hidden input field.
 
 ## Install
 
