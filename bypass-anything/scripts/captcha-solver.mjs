@@ -118,6 +118,112 @@ const PROVIDERS = {
   },
 };
 
+// ─── VLM Providers (image captcha OCR) ───
+
+const VLM_PROVIDERS = {
+  doubao: {
+    apiUrl: 'https://ark.cn-beijing.volces.com/api/v3/chat/completions',
+    keyEnv: 'DOUBAO_API_KEY',
+    model: 'doubao-seed-2-0-lite-260215',
+    buildPayload: (imageBase64) => ({
+      model: 'doubao-seed-2-0-lite-260215',
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'text', text: 'You are a CAPTCHA OCR engine. Output ONLY the text/numbers shown in this CAPTCHA image. No explanation, no punctuation, just the code.' },
+          { type: 'image_url', image_url: { url: `data:image/png;base64,${imageBase64}` } },
+        ],
+      }],
+      max_tokens: 20,
+    }),
+    parseResponse: (data) => {
+      const text = data?.choices?.[0]?.message?.content?.trim();
+      if (!text || text.length > 10) return null;
+      return text;
+    },
+  },
+  cervus: {
+    apiUrl: 'https://api.cervus.pro/v1/chat/completions',
+    keyEnv: 'CERVUS_API_KEY',
+    model: 'gemini-3-flash-preview-nothinking',
+    buildPayload: (imageBase64) => ({
+      model: 'gemini-3-flash-preview-nothinking',
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'text', text: 'Output ONLY the CAPTCHA text/numbers. No explanation.' },
+          { type: 'image_url', image_url: { url: `data:image/png;base64,${imageBase64}` } },
+        ],
+      }],
+      max_tokens: 20,
+    }),
+    parseResponse: (data) => {
+      const text = data?.choices?.[0]?.message?.content?.trim();
+      if (!text || text.length > 10) return null;
+      return text;
+    },
+  },
+};
+
+async function solveVlm(imageBase64) {
+  const order = ['doubao', 'cervus'];
+  for (const name of order) {
+    const provider = VLM_PROVIDERS[name];
+    const apiKey = process.env[provider.keyEnv];
+    if (!apiKey) continue;
+    try {
+      const payload = provider.buildPayload(imageBase64);
+      const result = await httpPost(provider.apiUrl, {
+        ...payload,
+        headers: { 'Authorization': `Bearer ${apiKey}` },
+      });
+      // httpPost doesn't support custom headers natively, so we use fetchVlm
+      const text = await fetchVlm(provider, apiKey, imageBase64);
+      if (text) {
+        console.log(`  [CAPTCHA-VLM] Solved via ${name}: ${text}`);
+        return text;
+      }
+    } catch (e) {
+      console.warn(`  [CAPTCHA-VLM] ${name} failed: ${e.message}`);
+    }
+  }
+  return null;
+}
+
+function fetchVlm(provider, apiKey, imageBase64) {
+  const payload = provider.buildPayload(imageBase64);
+  const url = provider.apiUrl;
+  return new Promise((resolve, reject) => {
+    const parsed = new URL(url);
+    const data = JSON.stringify(payload);
+    const mod = parsed.protocol === 'https:' ? https : http;
+    const req = mod.request({
+      hostname: parsed.hostname,
+      port: parsed.port,
+      path: parsed.pathname,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Length': Buffer.byteLength(data),
+      },
+    }, (res) => {
+      let body = '';
+      res.on('data', c => { body += c; });
+      res.on('end', () => {
+        try {
+          const parsed = provider.parseResponse(JSON.parse(body));
+          resolve(parsed);
+        } catch { resolve(null); }
+      });
+    });
+    req.on('error', reject);
+    req.setTimeout(30000, () => { req.destroy(); reject(new Error('VLM timeout')); });
+    req.write(data);
+    req.end();
+  });
+}
+
 function httpPost(url, payload) {
   return new Promise((resolve, reject) => {
     const parsed = new URL(url);
@@ -261,6 +367,13 @@ export async function solveCaptcha(type, params) {
       }
     } catch {}
     console.log(`  [CAPTCHA] Turnstile local failed, falling back to ${providerName}`);
+  }
+
+  // Image CAPTCHA: try VLM first (cheaper), then paid provider
+  if (type === 'image' && imageBase64) {
+    const vlmResult = await solveVlm(imageBase64);
+    if (vlmResult) return vlmResult;
+    console.log(`  [CAPTCHA] VLM failed, falling back to ${providerName}`);
   }
 
   // Paid API
