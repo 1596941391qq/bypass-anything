@@ -1,3 +1,5 @@
+[![GitHub stars](https://img.shields.io/github/stars/1596941391qq/bypass-anything?style=social)](https://github.com/1596941391qq/bypass-anything/stargazers) [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE) [![Node.js](https://img.shields.io/badge/Node.js-18%2B-green.svg)](https://nodejs.org/) [![Zero Puppeteer](https://img.shields.io/badge/CDP-Native-orange.svg)](#critical-implementation-detail)
+
 # Bypass Anything
 
 > Claude Code skill for browser automation with anti-detection, human behavior simulation, Cloudflare bypass, and CAPTCHA solving.
