@@ -1,11 +1,14 @@
 /**
- * CDP WebSocket browser automation engine
+ * CDP WebSocket 外链提交引擎
  *
- * Zero Puppeteer. Direct Chrome DevTools Protocol via WebSocket.
- * Uses Chrome's built-in HTTP stack (respects proxy, reuses sessions).
+ * 基于 edge-knowledge-pack 的 CDP 模式。
+ * 核心区别: 不用 Puppeteer page.goto()（走 Node HTTP，没代理），
+ * 而是用 CDP WebSocket 的 Page.navigate（走 Chrome 内置 HTTP，有代理）。
  *
- * Stealth injection uses Page.addScriptToEvaluateOnNewDocument (not Runtime.evaluate)
- * to ensure anti-detection runs BEFORE any page JS.
+ * 适用场景:
+ * - Cloudflare 保护的目录站
+ * - 需要 OAuth 登录的提交页
+ * - Puppeteer 超时但浏览器能访问的站点
  *
  * 用法:
  *   node cdp-submit.mjs <url> [--port=9222]
@@ -56,7 +59,7 @@ async function connect(port = 9222) {
   const res = await fetch(`http://127.0.0.1:${port}/json`);
   const tabs = await res.json();
   const page = tabs.find(t => t.type === 'page' && !t.url.startsWith('chrome://'))
-    || tabs.find(t => t.type === 'page');
+    || tabs.find(t => t.type === 'page'); // Fallback: use any page tab
   if (!page) throw new Error('No usable Chrome tab found');
   ws = new WebSocket(page.webSocketDebuggerUrl);
   await new Promise((resolve, reject) => {
@@ -65,6 +68,7 @@ async function connect(port = 9222) {
     setTimeout(() => reject(new Error('WS connect timeout')), 10000);
   });
 
+  // Wire close/error to reject all pending sends
   ws.on('close', () => {
     for (const [id, { reject }] of pendingSends) {
       reject(new Error('WebSocket closed'));
@@ -80,9 +84,7 @@ async function connect(port = 9222) {
 
   console.log(`CDP connected: ${page.url.slice(0, 60)}`);
 
-  // CRITICAL: Inject stealth via Page.addScriptToEvaluateOnNewDocument
-  // This runs stealth BEFORE any page JS. Using Runtime.evaluate was
-  // the #1 cause of CF challenge detection failures.
+  // Inject all 11 stealth modules
   await send('Page.enable');
   await injectStealth(send);
 
@@ -92,21 +94,6 @@ async function connect(port = 9222) {
 async function navigate(url, waitMs = 5000) {
   await send('Page.navigate', { url });
   await new Promise(r => setTimeout(r, waitMs));
-
-  // Auto-detect and wait for CF challenge
-  const cfCheck = await evaluate(`!!document.querySelector('#challenge-running, #challenge-stage, .challenge-platform')`);
-  if (cfCheck?.result?.value) {
-    console.log('  [CF] Challenge detected, waiting for auto-solve...');
-    for (let i = 0; i < 12; i++) {
-      await new Promise(r => setTimeout(r, 3000));
-      const still = await evaluate(`!!document.querySelector('#challenge-running, #challenge-stage, .challenge-platform')`);
-      if (!still?.result?.value) {
-        console.log('  [CF] Challenge passed!');
-        break;
-      }
-    }
-  }
-
   const r = await evaluate('document.URL');
   return r?.result?.value;
 }
@@ -120,8 +107,8 @@ async function getPageInfo() {
     hasRecaptcha: !!document.querySelector('iframe[src*="recaptcha"]'),
     hasRecaptchaV3: !!document.querySelector('script[src*="recaptcha/enterprise"]'),
     hasHcaptcha: !!document.querySelector('.h-captcha'),
-    hasTurnstile: !!document.querySelector('[data-sitekey]') || !!document.querySelector('iframe[src*="turnstile"]') || typeof turnstile !== 'undefined',
-    hasCfChallenge: !!document.querySelector('#challenge-running, #challenge-stage, .challenge-platform'),
+    hasTurnstile: !!document.querySelector('[data-sitekey]') || !!document.querySelector('iframe[src*="turnstile"]'),
+    hasCfChallenge: !!document.querySelector('#challenge-running, #challenge-form, .cf-browser-verification'),
     hasCleanTalk: !!document.querySelector('[id*="cleantalk"], script[src*="cleantalk"]'),
     buttons: Array.from(document.querySelectorAll('button')).map(b => b.textContent.trim()).filter(t => t.length < 30)
   })`);
@@ -129,10 +116,12 @@ async function getPageInfo() {
 }
 
 async function fillField(selector, value) {
+  // Use human-like typing for anti-spam evasion
   return typeHuman(send, selector, value);
 }
 
 async function clickElement(selector) {
+  // Get element position for human-like click
   const pos = await evaluate(`
     (function(){
       var el = document.querySelector('${selector}');
@@ -148,6 +137,7 @@ async function clickElement(selector) {
 }
 
 async function pressSequentially(selector, text, delay = 50) {
+  // Delegate to human behavior module with variable typing rhythm
   return typeHuman(send, selector, text, delay);
 }
 
@@ -175,7 +165,7 @@ async function takeScreenshot(outPath) {
 
 export { send, evaluate, connect, navigate, getPageInfo, fillField, clickElement, pressSequentially, submitForm, takeScreenshot };
 
-// ─── CLI ───
+// ─── 主流程 ───
 
 async function main() {
   const args = process.argv.slice(2);
@@ -195,10 +185,12 @@ async function main() {
 
   await connect(port);
 
+  // 1. Navigate
   console.log(`\n→ Navigating: ${targetUrl}`);
   const currentUrl = await navigate(targetUrl, 6000);
   console.log(`  Landed: ${currentUrl}`);
 
+  // 2. Page analysis
   const info = await getPageInfo();
   console.log(`  Title: ${info.title}`);
   console.log(`  Forms: ${info.forms} | Links: ${info.links}`);
@@ -209,11 +201,13 @@ async function main() {
     await new Promise(r => setTimeout(r, 10000));
   }
 
+  // 3. Screenshot
   const ts = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
   const ssPath = path.join(PACK_ROOT, `cdp-submit-${ts}.png`);
   await takeScreenshot(ssPath);
   console.log(`  Screenshot: ${ssPath}`);
 
+  // 4. Output page info as JSON for Claude Code to decide next steps
   const result = { ...info, screenshot: ssPath, timestamp: ts };
   console.log('\n=== PAGE INFO (for Claude Code) ===');
   console.log(JSON.stringify(result, null, 2));
