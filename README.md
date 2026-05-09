@@ -4,7 +4,7 @@
 
 > Claude Code skill for browser automation with anti-detection, human behavior simulation, Cloudflare bypass, and CAPTCHA solving.
 
-Zero Puppeteer. CDP WebSocket native. 11 anti-detection modules. Bezier mouse. Typing rhythm. Turnstile auto-solve. Verified: CF Turnstile real sitekey bypassed in 6s.
+Zero Puppeteer. CDP WebSocket native. 16 anti-detection modules. Bezier mouse. Typing rhythm. Turnstile auto-solve. Verified: CF Turnstile real sitekey bypassed in 6s.
 
 ## What It Does
 
@@ -246,6 +246,16 @@ Tested on [bot.sannysoft.com](https://bot.sannysoft.com):
 ```
 bypass-anything/
 ├── README.md                    ← This file
+├── docs/                        ← Strategy knowledge base
+│   ├── anti-spam.md
+│   ├── cf-captcha-bypass.md
+│   ├── dofollow-2026.md
+│   ├── iron-rules.md
+│   ├── platforms.md
+│   ├── strategies.md
+│   ├── accounts.md
+│   ├── dead-sites.md
+│   └── reverse-eng.md
 ├── bypass-anything/
 │   ├── SKILL.md                 ← Claude Code skill definition
 │   ├── install.sh               ← Dependency installer
@@ -253,11 +263,31 @@ bypass-anything/
 │   ├── package.json             ← Node.js dependencies (ws)
 │   └── scripts/
 │       ├── cdp-submit.mjs       ← Main CDP WebSocket engine
-│       ├── stealth-inject.mjs   ← 11 anti-detection modules
+│       ├── stealth-inject.mjs   ← 16 anti-detection modules
 │       ├── human-behavior.mjs   ← Bezier mouse + typing rhythm
 │       ├── cf-solver.mjs        ← FlareSolverr + CDP fallback
 │       └── captcha-solver.mjs   ← Turnstile local + 3 paid APIs
 ```
+
+
+### adspower-client.mjs — AdsPower Integration
+
+
+
+### sms-verifier.mjs — SMS Verification
+
+
+
+### submit-directories.mjs — Directory Submission
+
+
+
+### submit-v2.mjs — V2 Submission Engine
+
+
+
+### verify-rel.mjs — Link Relationship Verification
+
 
 ## Roadmap
 
